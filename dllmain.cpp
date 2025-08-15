@@ -17,11 +17,15 @@ using namespace sampapi::v03dl;
 typedef HRESULT(__stdcall* _EndScene)(IDirect3DDevice9* pDevice);
 _EndScene oEndScene;
 
+bool draw = false;
+
 HRESULT __stdcall hkEndScene(IDirect3DDevice9* pDevice)
 {
-	D3DRECT BarRect = { 100,100,200,200 };
-	pDevice->Clear(1, &BarRect, D3DCLEAR_TARGET, D3DCOLOR_ARGB(1, 1, 1, 1), 0.0f, 0);
-	return oEndScene(pDevice);
+  if(draw) {
+    D3DRECT BarRect = { 100,100,200,200 };
+    pDevice->Clear(1, &BarRect, D3DCLEAR_TARGET, D3DCOLOR_ARGB(1, 1, 1, 1), 0.0f, 0);
+  }
+  return oEndScene(pDevice);
 }
 
 std::vector<char> vBuffer(20 * 1024);
@@ -92,9 +96,13 @@ DWORD WINAPI MainThread(HMODULE hModule) {
     logger(LOG_INFO, "Waiting game start..");
   }
 
+  Sleep(1000);
+
   void** vTableDevice = *(void***)(*(DWORD*)0xC97C28);
   VTableHookManager* vmtHooks = new VTableHookManager(vTableDevice, 119);
   oEndScene = (_EndScene)vmtHooks->Hook(42, (void*)hkEndScene);
+
+  
  
   //asio::error_code ec;
 
@@ -115,10 +123,19 @@ DWORD WINAPI MainThread(HMODULE hModule) {
   //}
 
   while(true) {
+    
 
     if (GetAsyncKeyState(VK_NUMPAD9) & 1) {
       //ProcessServerData(socket);
       //std:: string sRequest = "getServerInfo";
+
+      if(draw) {
+        
+	draw = false;
+      } else {
+        
+	draw = true;
+      }
 
       //socket.write_some(asio::buffer(sRequest.data(), sRequest.size()), ec);
     }
