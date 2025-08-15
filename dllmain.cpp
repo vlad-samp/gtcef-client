@@ -10,6 +10,10 @@
 #include "mem.h"
 #include <stdlib.h>
 
+#include "CChat.h"
+#include "CGame.h"
+using namespace sampapi::v03dl;
+
 typedef HRESULT(__stdcall* _EndScene)(IDirect3DDevice9* pDevice);
 _EndScene oEndScene;
 
@@ -67,7 +71,8 @@ void logger(LOG_TYPE logType, std::string message, ...) {
   std::cout << std::endl;
 }
 
-DWORD WINAPI WolfMP(HMODULE hModule) {
+
+DWORD WINAPI MainThread(HMODULE hModule) {
   AllocConsole();
   FILE* f = new FILE;
   freopen_s(&f, "CONOUT$", "w", stdout);
@@ -80,25 +85,22 @@ DWORD WINAPI WolfMP(HMODULE hModule) {
   uintptr_t gtaBase = (uintptr_t)GetModuleHandle("gta_sa.exe");
   
   logger(LOG_INFO, "Starting up..");
-  while(!GetModuleHandleA("d3d9.dll")) {
+  CGame *&pGame = RefGame();
+
+  while(!pGame->IsStarted()) {
     Sleep(1);
-    logger(LOG_INFO, "Waiting for D3D9 loading..");
+    logger(LOG_INFO, "Waiting game start..");
   }
 
-  float checkData = ((float)gtaBase + 0x863984);
-
-  while(checkData != 0.008f) {
-    Sleep(1);
-    logger(LOG_INFO, "grav %f", checkData);
-  }
-
+  void** vTableDevice = *(void***)(*(DWORD*)0xC97C28);
+  VTableHookManager* vmtHooks = new VTableHookManager(vTableDevice, 119);
+  oEndScene = (_EndScene)vmtHooks->Hook(42, (void*)hkEndScene);
  
   //asio::error_code ec;
 
   //asio::io_context context;
 
   //asio::io_context::work idleWork(context);
-  
   //std::thread thrContext = std::thread([&]() { context.run(); });
   //asio::ip::tcp::endpoint endpoint(asio::ip::make_address("127.0.0.1", ec), 8080);
 
@@ -115,9 +117,6 @@ DWORD WINAPI WolfMP(HMODULE hModule) {
   while(true) {
 
     if (GetAsyncKeyState(VK_NUMPAD9) & 1) {
-      void** vTableDevice = *(void***)(*(DWORD*)0xC97C28);
-      VTableHookManager* vmtHooks = new VTableHookManager(vTableDevice, 119);
-      oEndScene = (_EndScene)vmtHooks->Hook(42, (void*)hkEndScene);
       //ProcessServerData(socket);
       //std:: string sRequest = "getServerInfo";
 
@@ -127,6 +126,8 @@ DWORD WINAPI WolfMP(HMODULE hModule) {
     if (GetAsyncKeyState(VK_NUMPAD5) & 1) {
       //for (int i = 0; i < sizeof(vBuffer); i++)
       //std::cout << vBuffer[i];
+      CChat *&pChat = RefChat();
+      if(pChat) pChat->AddMessage(-1, "svya aime les hommes");
     }
 
     if (GetAsyncKeyState(VK_NUMPAD3) & 1) {
@@ -148,7 +149,7 @@ DWORD WINAPI WolfMP(HMODULE hModule) {
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
   switch (ul_reason_for_call) {
   case DLL_PROCESS_ATTACH:
-    CloseHandle(CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)WolfMP, hModule, 0, NULL));
+    CloseHandle(CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)MainThread, hModule, 0, NULL));
   case DLL_THREAD_ATTACH:
   case DLL_THREAD_DETACH:
   case DLL_PROCESS_DETACH:
